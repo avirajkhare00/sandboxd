@@ -33,9 +33,11 @@ func setupHostNet(allow []string) error {
 		"sysctl -qw net.ipv4.ip_forward=1",
 		"nft add table inet sandboxd 2>/dev/null || true",
 		"nft flush table inet sandboxd",
-		"nft add chain inet sandboxd sb_egress '{ type filter hook forward priority 0; policy drop; }'",
+		// policy accept so docker0 and friends keep working; only sb0 traffic is filtered.
+		"nft add chain inet sandboxd sb_egress '{ type filter hook forward priority 0; policy accept; }'",
 		"nft add rule inet sandboxd sb_egress ct state established,related accept",
 		"nft add rule inet sandboxd sb_egress iifname sb0 ip daddr " + set + " accept",
+		"nft add rule inet sandboxd sb_egress iifname sb0 drop",
 		"nft add chain inet sandboxd sb_nat '{ type nat hook postrouting priority 100; }'",
 		"nft add rule inet sandboxd sb_nat ip saddr 10.200.0.0/16 oifname != sb0 masquerade",
 	}
