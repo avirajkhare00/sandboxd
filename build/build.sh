@@ -23,9 +23,10 @@ fi
   truncate -s 2G rootfs.ext4
   mkfs.ext4 -q rootfs.ext4
   mkdir -p mnt && sudo mount rootfs.ext4 mnt
-  sudo docker run --rm -v "$PWD/mnt:/out" debian:bookworm-slim sh -c '
-    apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 python3-pip nodejs npm git ca-certificates curl >/dev/null
-    cp -a / /out 2>/dev/null || true'
+  cid=$(sudo docker run -d debian:bookworm-slim sh -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends python3 python3-pip nodejs npm git ca-certificates curl iproute2 >/dev/null')
+  sudo docker wait "$cid" >/dev/null
+  sudo docker export "$cid" | sudo tar -x -C mnt
+  sudo docker rm "$cid" >/dev/null
   sudo cp agent mnt/usr/local/bin/agent
   sudo mkdir -p mnt/work
   sudo tee mnt/sbin/init >/dev/null <<'INIT'
