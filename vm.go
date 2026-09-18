@@ -101,12 +101,23 @@ func newVM() (*VM, error) {
 				return nil, err
 			}
 		}
-		opts = append(opts, firecracker.WithSnapshot("vm.mem", "vm.snap"))
+		opts = append(opts, firecracker.WithSnapshot("vm.mem", "vm.snap", func(sc *firecracker.SnapshotConfig) { sc.ResumeVM = true }))
 	}
 	m, err := firecracker.NewMachine(ctx, fcCfg, opts...)
 	if err != nil {
 		vm.Destroy()
 		return nil, err
+	}
+	if len(opts) > 0 {
+		// SDK v1.0.0 snapshot mode doesn't know about the jailer: paths are chroot-relative
+		// (so skip the host-side stat), the vsock device is restored from the snapshot, and the
+		// rootfs/kernel still need linking into the chroot.
+		m.Handlers.Validation = m.Handlers.Validation.Remove(firecracker.ValidateLoadSnapshotCfgHandlerName)
+		m.Handlers.FcInit = m.Handlers.FcInit.Remove(firecracker.AddVsocksHandlerName)
+		if !m.Handlers.FcInit.Has(firecracker.LinkFilesToRootFSHandlerName) {
+			m.Handlers.FcInit = m.Handlers.FcInit.AppendAfter(firecracker.CreateLogFilesHandlerName,
+				firecracker.LinkFilesHandler(filepath.Base(cfg.Kernel)))
+		}
 	}
 	vm.machine = m
 	t0 := time.Now()
