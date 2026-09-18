@@ -3,6 +3,7 @@
 # Layout must match what sandboxd's jailer chroot sees: drive at /rootfs.ext4, tap0, v.sock in cwd.
 set -eu
 cd "$(dirname "$0")"
+D=$PWD
 rm -rf snapshot && mkdir -p snapshot
 SOCK=/tmp/fc-snap.sock; rm -f $SOCK
 LOG=/tmp/fc-snap.log
@@ -17,7 +18,6 @@ ip netns exec snap firecracker --api-sock $SOCK > $LOG 2>&1 &
 FC=$!
 sleep 0.2
 api() { curl -sf --unix-socket $SOCK -X "$1" "http://localhost$2" -H 'Content-Type: application/json' -d "$3"; }
-D=$(cd "$(dirname "$0")" && pwd)
 api PUT /boot-source '{"kernel_image_path":"'$D'/vmlinux","boot_args":"console=ttyS0 reboot=k panic=1 pci=off ip=172.16.0.2::172.16.0.1:255.255.255.252::eth0:off init=/sbin/init"}'
 api PUT /drives/rootfs '{"drive_id":"rootfs","path_on_host":"/rootfs.ext4","is_root_device":true,"is_read_only":false}'
 api PUT /network-interfaces/eth0 '{"iface_id":"eth0","host_dev_name":"tap0","guest_mac":"06:00:AC:10:00:02"}'
