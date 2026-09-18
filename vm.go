@@ -27,7 +27,7 @@ type VM struct {
 }
 
 func newID() string {
-	b := make([]byte, 6)
+	b := make([]byte, 4) // 8 hex chars: keeps "sb-<id>h" under IFNAMSIZ (15)
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
@@ -43,6 +43,7 @@ func newVM() (*VM, error) {
 		return nil, err
 	}
 	if err := setupVMNet(vm.netns); err != nil {
+		vm.Destroy()
 		return nil, err
 	}
 	overlay, err := newOverlay(vm.chroot)
