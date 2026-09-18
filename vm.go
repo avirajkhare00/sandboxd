@@ -16,7 +16,10 @@ import (
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 )
 
-const guestPort = 5000
+const (
+	guestPort = 5000
+	jailUID   = 1000
+)
 
 type VM struct {
 	ID      string
@@ -73,8 +76,8 @@ func newVM() (*VM, error) {
 		NetNS: "/var/run/netns/" + vm.netns,
 		JailerCfg: &firecracker.JailerConfig{
 			ID:             id,
-			UID:            firecracker.Int(1000),
-			GID:            firecracker.Int(1000),
+			UID:            firecracker.Int(jailUID),
+			GID:            firecracker.Int(jailUID),
 			NumaNode:       firecracker.Int(0),
 			CgroupVersion:  "2",
 			ExecFile:       cfg.Firecracker,

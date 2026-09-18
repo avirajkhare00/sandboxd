@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 )
@@ -14,6 +15,10 @@ func newOverlay(dir string) (string, error) {
 	dst := filepath.Join(dir, "rootfs.ext4")
 	if out, err := exec.Command("cp", "--reflink=auto", "--sparse=always", cfg.BaseRootfs, dst).CombinedOutput(); err != nil {
 		return "", fmt.Errorf("overlay: %v: %s", err, out)
+	}
+	// jailer drops firecracker to this uid; it needs RW on the backing file.
+	if err := os.Chown(dst, jailUID, jailUID); err != nil {
+		return "", err
 	}
 	return dst, nil
 }
