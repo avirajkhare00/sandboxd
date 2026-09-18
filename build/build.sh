@@ -13,7 +13,7 @@ if [ ! -x /usr/local/bin/firecracker ]; then
 fi
 
 # 2. Kernel (prebuilt CI kernel from the Firecracker project)
-[ -f vmlinux ] || curl -sL -o vmlinux "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.13/${ARCH}/vmlinux-6.1.bin"
+[ -f vmlinux ] || curl -sL -o vmlinux "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.13/${ARCH}/vmlinux-6.1.141"
 
 # 3. Guest agent
 (cd .. && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o build/agent ./guest)
