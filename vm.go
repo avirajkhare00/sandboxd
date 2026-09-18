@@ -46,7 +46,7 @@ func newVM() (*VM, error) {
 		vm.Destroy()
 		return nil, err
 	}
-	overlay, err := newOverlay(vm.chroot)
+	overlay, err := newOverlay(filepath.Dir(vm.chroot)) // SDK hardlinks it into the chroot as /rootfs.ext4
 	if err != nil {
 		vm.Destroy()
 		return nil, err
