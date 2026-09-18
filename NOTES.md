@@ -31,7 +31,41 @@ Guest: 1 vCPU, 512MB, Debian bookworm rootfs (python3, node 18, git, curl), Fire
 13. `pkill sandboxd` under sudo matches the `sudo pkill sandboxd` wrapper and kills that first. Use `pkill -x` or pids.
 14. Restored guests have the clock frozen at snapshot time (`date` says 18:55 forever). Needs a clock fix on first exec.
 
+## Load test 2026-09-18 (cmd/loadtest, snapshot restore, 4 host vCPUs)
+
+Hot path, one sandbox, 50 sequential `true` execs: **p50 4ms, p99 9ms**. That is the vsock round trip plus fork/exec in the guest.
+
+### The overlay copy was the real bottleneck, not Firecracker
+
+Pool of 16 starting up, all restores concurrent:
+
+| host fs | overlay copy per VM | restore (start -> agent) | disk per 16 VMs |
+|---|---|---|---|
+| ext4 (`cp` = full copy) | **24s - 42s** (16 x 680MB fighting for pd-balanced throughput) | 180-540ms | 3.4GB per 5 VMs |
+| XFS reflink=1 (`cp --reflink`) | **~110ms** | 180-470ms | ~100MB for 16 VMs |
+
+"Restore is fast" was true the whole time; the 33s create latency I first saw was the rootfs copy queued behind 15 others.
+Measure the whole create path, not just the part the vendor talks about.
+
+### Concurrency on 4 vCPUs (XFS)
+
+| N sandboxes concurrent, 5 execs each | create p50 / p99 | exec p50 / p99 |
+|---|---|---|
+| 1 | 1ms / - | 20ms / 20ms |
+| 5 (pool 4) | 2ms / 148ms | 41ms / 251ms |
+| 10 (pool 4) | 1.3s / 2.7s | 37ms / 253ms |
+| 20 (pool 4) | 3.0s / 5.8s | 40ms / 227ms |
+| 20 (pool 16) | 11ms / 2.8s | 173ms / 1.4s |
+| 40 (pool 16) | 2.4s / 5.1s | 206ms / 1.8s |
+
+Create p50 is a pool hit (~ms) until the pool drains, then it's the refill rate (~300-500ms per restore under load, refills serialized by CPU).
+Exec latency degrades once live guest vCPUs exceed host cores: 20 guests on 4 cores = 4-5x oversubscribed, p99 goes from 250ms to 1.4s.
+Sizing rule of thumb from this box: ~1 host core per 4-5 mostly-idle sandboxes if you care about exec p99 < 500ms. Nested virt inflates this; redo on metal.
+
+Memory: 16 idle restored VMs = ~450MB RSS total (~28MB each). 512MB guests page in lazily from the shared mem file.
+
 ## Open
+- XFS is a loop-mounted image at /srv/sbx (not in fstab; re-mount after reboot: `mount -o loop /srv/sbx.img /srv/sbx`).
 
 - Guest clock after restore (ptp_kvm or agent sets time from host on first request).
 - Guest DNS (no resolv.conf; allowlist by IP only for now).
