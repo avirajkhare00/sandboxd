@@ -19,6 +19,8 @@ import (
 const port = 5000
 
 func main() {
+	os.Setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin") // init starts with an empty env
+	os.Setenv("HOME", "/root")
 	fd, err := unix.Socket(unix.AF_VSOCK, unix.SOCK_STREAM, 0)
 	if err != nil {
 		log.Fatal(err)
@@ -70,9 +72,8 @@ func run(req proto.Req) proto.Resp {
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	err := cmd.Run()
 	resp := proto.Resp{Stdout: out.String(), Stderr: errb.String(), ExitCode: cmd.ProcessState.ExitCode()}
-	if err != nil && resp.ExitCode == 0 {
+	if err != nil && resp.ExitCode == -1 { // failed to start (not found, bad dir, killed)
 		resp.Error = err.Error()
-		resp.ExitCode = -1
 	}
 	if ctx.Err() != nil {
 		resp.Error = "timeout"
