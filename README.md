@@ -18,3 +18,13 @@ curl -XDELETE localhost:8080/sandboxes/$ID
 
 Numbers to collect for the blog: cold boot vs restore (ms), RSS per idle VM,
 VMs per box, exec p50/p99 under load, overlay disk growth per hour.
+
+## Dev loop on the GCE box
+
+```sh
+gcloud compute ssh sandboxd --zone=asia-south1-a
+export PATH=$PATH:/usr/local/go/bin:/usr/sbin
+cd sandboxd && go build -o sandboxd . && sudo -E env PATH=$PATH ./sandboxd -pool 4 -snapdir build/snapshot -state /srv/sandboxd -egress 1.1.1.1/32
+# stop: sudo kill $(pgrep -x sandboxd) $(pgrep -x firecracker); sudo rm -rf /srv/sandboxd/firecracker
+```
+See NOTES.md for measurements and the failure log.
