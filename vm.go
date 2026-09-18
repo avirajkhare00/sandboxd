@@ -50,11 +50,13 @@ func newVM() (*VM, error) {
 		vm.Destroy()
 		return nil, err
 	}
+	tOv := time.Now()
 	overlay, err := newOverlay(filepath.Dir(vm.chroot)) // SDK hardlinks it into the chroot as /rootfs.ext4
 	if err != nil {
 		vm.Destroy()
 		return nil, err
 	}
+	overlayTook := time.Since(tOv)
 
 	fcCfg := firecracker.Config{
 		SocketPath:      "/run/firecracker.socket", // relative to chroot
@@ -129,7 +131,7 @@ func newVM() (*VM, error) {
 		vm.Destroy()
 		return nil, err
 	}
-	log.Printf("vm %s ready in %s", id, time.Since(t0).Round(time.Millisecond))
+	log.Printf("vm %s ready in %s (overlay %s)", id, time.Since(t0).Round(time.Millisecond), overlayTook.Round(time.Millisecond))
 	return vm, nil
 }
 
