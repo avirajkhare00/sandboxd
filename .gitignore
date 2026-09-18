@@ -1,0 +1,6 @@
+build/vmlinux
+build/rootfs.ext4
+build/agent
+build/snapshot/
+build/release-*
+sandboxd
