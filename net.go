@@ -38,6 +38,9 @@ func setupHostNet(allow []string) error {
 		"nft add rule inet sandboxd sb_egress ct state established,related accept",
 		"nft add rule inet sandboxd sb_egress iifname sb0 ip daddr " + set + " accept",
 		"nft add rule inet sandboxd sb_egress iifname sb0 drop",
+		// docker sets FORWARD policy DROP in its own table; any table's drop wins, so punch sb0 through.
+		"iptables -C FORWARD -i sb0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i sb0 -j ACCEPT",
+		"iptables -C FORWARD -o sb0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o sb0 -j ACCEPT",
 		"nft add chain inet sandboxd sb_nat '{ type nat hook postrouting priority 100; }'",
 		"nft add rule inet sandboxd sb_nat ip saddr 10.200.0.0/16 oifname != sb0 masquerade",
 	}
