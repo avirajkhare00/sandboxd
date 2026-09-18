@@ -31,7 +31,7 @@ fi
   sudo mkdir -p mnt/work
   sudo tee mnt/sbin/init >/dev/null <<'INIT'
 #!/bin/sh
-mount -t proc proc /proc; mount -t sysfs sys /sys; mount -t devtmpfs dev /dev
+mount -t proc proc /proc; mount -t sysfs sys /sys
 exec /usr/local/bin/agent
 INIT
   sudo chmod +x mnt/sbin/init

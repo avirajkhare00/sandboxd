@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -108,11 +109,34 @@ func newVM() (*VM, error) {
 		return nil, err
 	}
 	vm.machine = m
+	t0 := time.Now()
 	if err := m.Start(ctx); err != nil {
 		vm.Destroy()
 		return nil, fmt.Errorf("start: %w", err)
 	}
+	if err := vm.waitReady(5 * time.Second); err != nil {
+		vm.Destroy()
+		return nil, err
+	}
+	log.Printf("vm %s ready in %s", id, time.Since(t0).Round(time.Millisecond))
 	return vm, nil
+}
+
+// waitReady polls the guest agent until it answers or the deadline passes.
+func (vm *VM) waitReady(d time.Duration) error {
+	deadline := time.Now().Add(d)
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		_, err := vm.Exec(ctx, proto.Req{Cmd: []string{"true"}})
+		cancel()
+		if err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("agent not ready after %s: %w", d, err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 // Exec dials the guest agent over Firecracker's vsock UDS and runs one command.

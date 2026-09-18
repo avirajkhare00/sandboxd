@@ -6,8 +6,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"time"
@@ -29,23 +29,19 @@ func main() {
 	if err := unix.Listen(fd, 16); err != nil {
 		log.Fatal(err)
 	}
-	f := os.NewFile(uintptr(fd), "vsock")
-	ln, err := net.FileListener(f)
-	if err != nil {
-		log.Fatal(err)
-	}
 	log.Printf("agent listening on vsock:%d", port)
+	// Go's net package doesn't know AF_VSOCK, so accept by hand and wrap the fd.
 	for {
-		c, err := ln.Accept()
+		nfd, _, err := unix.Accept(fd)
 		if err != nil {
 			log.Print(err)
 			continue
 		}
-		go serve(c)
+		go serve(os.NewFile(uintptr(nfd), "vsock-conn"))
 	}
 }
 
-func serve(c net.Conn) {
+func serve(c io.ReadWriteCloser) {
 	defer c.Close()
 	r := bufio.NewReader(c)
 	for {
