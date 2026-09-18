@@ -33,11 +33,11 @@ func setupHostNet(allow []string) error {
 		"sysctl -qw net.ipv4.ip_forward=1",
 		"nft add table inet sandboxd 2>/dev/null || true",
 		"nft flush table inet sandboxd",
-		"nft add chain inet sandboxd fwd '{ type filter hook forward priority 0; policy drop; }'",
-		"nft add rule inet sandboxd fwd ct state established,related accept",
-		"nft add rule inet sandboxd fwd iifname sb0 ip daddr " + set + " accept",
-		"nft add chain inet sandboxd nat '{ type nat hook postrouting priority 100; }'",
-		"nft add rule inet sandboxd nat ip saddr 10.200.0.0/16 oifname != sb0 masquerade",
+		"nft add chain inet sandboxd egress '{ type filter hook forward priority 0; policy drop; }'",
+		"nft add rule inet sandboxd egress ct state established,related accept",
+		"nft add rule inet sandboxd egress iifname sb0 ip daddr " + set + " accept",
+		"nft add chain inet sandboxd snat '{ type nat hook postrouting priority 100; }'",
+		"nft add rule inet sandboxd snat ip saddr 10.200.0.0/16 oifname != sb0 masquerade",
 	}
 	for _, c := range cmds {
 		if err := sh(c); err != nil {
