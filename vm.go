@@ -76,6 +76,7 @@ func newVM() (*VM, error) {
 			UID:            firecracker.Int(1000),
 			GID:            firecracker.Int(1000),
 			NumaNode:       firecracker.Int(0),
+			CgroupVersion:  "2",
 			ExecFile:       cfg.Firecracker,
 			JailerBinary:   cfg.Jailer,
 			ChrootBaseDir:  cfg.StateDir,
