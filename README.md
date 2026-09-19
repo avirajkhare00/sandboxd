@@ -67,6 +67,8 @@ Every `v*` tag publishes `sandboxd` (linux/amd64), `sandboxd-mcp` (linux and mac
 
 Tools: `sandbox_run` (shell command, lazily creates a session sandbox), `sandbox_put_file`, `sandbox_create`, `sandbox_destroy`.
 
+![Claude Code running a 300 million iteration Python loop in the sandbox](docs/long-running-job.png)
+
 This repo ships a project `.mcp.json` and a skill at `.claude/skills/sandbox/SKILL.md` that tells Claude when to prefer the sandbox over host Bash. Open Claude Code in a clone and both load automatically. To reuse the skill in another project, copy the skill directory into that project's `.claude/skills/` or into `~/.claude/skills/`.
 
 If sandboxd runs on a remote box, tunnel it: `ssh -N -L 8080:127.0.0.1:8080 host`. The MCP server itself is plain HTTP and builds on macOS.

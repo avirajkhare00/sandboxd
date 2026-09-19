@@ -47,9 +47,9 @@ Expect: `sh -c` with a loop, `grep -c`, `awk`, then `ls`. Shows the same sandbox
 
 **7. Long-running job with a timeout**
 
-> Run a Python loop in the sandbox that sums the squares of the first 300 million integers. It will take more than a minute, so set an appropriate timeout.
+> Run a Python loop in the sandbox that sums the squares of the first billion integers. It will take more than a minute, so set an appropriate timeout.
 
-Expect: Claude passes `timeout_ms` above 60000. On 1 vCPU nested KVM this takes roughly 60 to 120 seconds. If Claude forgets the timeout, the result comes back with `error: "timeout"` and it should retry once with a bigger value.
+Expect: Claude passes `timeout_ms` above 60000. On 1 vCPU nested KVM 300 million iterations measured 34.7 s, so a billion lands around 110 to 120 s. If Claude forgets the timeout, the result comes back with `error: "timeout"` and it should retry once with a bigger value.
 
 ---
 
