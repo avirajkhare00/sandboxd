@@ -1,0 +1,15 @@
+[Unit]
+Description=sandboxd: Firecracker microVM sandboxes for agents
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStartPre=/bin/sh -c 'mountpoint -q /srv/sbx || mount -o loop /srv/sbx.img /srv/sbx'
+ExecStart=/usr/local/bin/sandboxd -pool 4 -state /srv/sbx -snapdir /srv/sbx/snapshot -rootfs /srv/sbx/rootfs.ext4 -kernel /srv/sbx/vmlinux -egress ${EGRESS}
+Environment=EGRESS=1.1.1.1/32
+EnvironmentFile=-/etc/default/sandboxd
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

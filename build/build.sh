@@ -29,6 +29,7 @@ fi
   sudo docker rm "$cid" >/dev/null
   sudo cp agent mnt/usr/local/bin/agent
   sudo mkdir -p mnt/work
+  echo "nameserver 1.1.1.1" | sudo tee mnt/etc/resolv.conf >/dev/null   # allowlist 1.1.1.1/32 with -egress
   sudo tee mnt/sbin/init >/dev/null <<'INIT'
 #!/bin/sh
 mount -t proc proc /proc; mount -t sysfs sys /sys

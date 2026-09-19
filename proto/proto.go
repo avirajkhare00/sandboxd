@@ -11,6 +11,7 @@ type Req struct {
 	Cmd     []string `json:"cmd"`
 	Stdin   string   `json:"stdin,omitempty"`
 	Timeout int      `json:"timeout_ms,omitempty"`
+	NowNs   int64    `json:"now_ns,omitempty"` // host wall clock; restored guests wake with a stale clock
 }
 
 type Resp struct {

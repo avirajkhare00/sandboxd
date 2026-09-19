@@ -174,6 +174,7 @@ func (vm *VM) Exec(ctx context.Context, req proto.Req) (*proto.Resp, error) {
 	if line, err := r.ReadString('\n'); err != nil || len(line) < 2 || line[:2] != "OK" {
 		return nil, fmt.Errorf("vsock connect: %q %v", line, err)
 	}
+	req.NowNs = time.Now().UnixNano()
 	if err := proto.Write(c, req); err != nil {
 		return nil, err
 	}

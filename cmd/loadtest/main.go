@@ -84,7 +84,9 @@ func create() (string, error) {
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("status %d", resp.StatusCode)
 	}
-	var v struct{ ID string `json:"id"` }
+	var v struct {
+		ID string `json:"id"`
+	}
 	return v.ID, json.NewDecoder(resp.Body).Decode(&v)
 }
 

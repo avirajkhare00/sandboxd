@@ -43,6 +43,20 @@ func main() {
 	}
 }
 
+// syncClock sets the guest clock from the host when they disagree by more than a second.
+// A snapshot-restored VM otherwise believes it is still the moment the snapshot was taken.
+func syncClock(hostNs int64) {
+	if hostNs == 0 {
+		return
+	}
+	if d := time.Now().UnixNano() - hostNs; d > int64(time.Second) || d < -int64(time.Second) {
+		ts := unix.NsecToTimespec(hostNs)
+		if err := unix.ClockSettime(unix.CLOCK_REALTIME, &ts); err != nil {
+			log.Print("settime: ", err)
+		}
+	}
+}
+
 func serve(c io.ReadWriteCloser) {
 	defer c.Close()
 	r := bufio.NewReader(c)
@@ -56,6 +70,7 @@ func serve(c io.ReadWriteCloser) {
 }
 
 func run(req proto.Req) proto.Resp {
+	syncClock(req.NowNs)
 	if len(req.Cmd) == 0 {
 		return proto.Resp{Error: "empty cmd", ExitCode: -1}
 	}
