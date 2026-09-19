@@ -105,9 +105,23 @@ install.sh
 NOTES.md         measurements and the failure log
 ```
 
-## Not done
+## Limitations
 
-Authentication on the API (bind to localhost only). Per-sandbox CPU quotas beyond vCPU count. Diff snapshots. Bare metal numbers. A macOS backend on Virtualization.framework would be possible but is not planned.
+Know these before pointing an agent at it.
+
+| | today | consequence |
+| --- | --- | --- |
+| Egress | IP allowlist, default DNS only | `pip install`, `npm install`, `git clone` fail unless the operator allowlists the registry IPs. PyPI and npm sit behind CDNs with rotating IPs, so this is fragile. A domain-based proxy is the planned fix. |
+| Guest image | python3, pip, node 18, npm, git, curl. No pandas, numpy, or build tools | Standard-library Python and Node only, unless you rebuild the rootfs with more packages (`build/build.sh`) and retake the snapshot. |
+| Resources | 1 vCPU, 512 MB RAM, 2 GB disk per sandbox, fixed by the snapshot | Enough for scripts and small data. Not enough for `next build`, large pandas frames, or compiling anything big. |
+| File upload | 8 MB per file, via exec stdin | Big CSVs and whole repos need a streaming upload endpoint that does not exist yet. |
+| Processes | request/response, 60 s default timeout, child killed on return | No dev servers, no daemons, no watch mode. |
+| Inbound network | none | Nothing can connect into a sandbox. A web app running inside is unreachable. |
+| Lifetime | 15 min default, then destroyed | State under `/work` is gone after that. |
+| Auth | none | Bind to localhost only. Anyone who can reach the port owns every sandbox. |
+| Host | Linux with KVM only | No macOS backend. Nested virt works (GCE, Azure, Hetzner Cloud) but is slower than metal. |
+
+Also not done: per-sandbox CPU quotas beyond vCPU count, diff snapshots, bare metal numbers.
 
 ## License
 

@@ -29,9 +29,19 @@ Use Bash on the host only for reading the user's repo, git, and commands the use
 
 Debian bookworm, `python3`, `pip`, `node` 18, `npm`, `git`, `curl`. 1 vCPU, 512 MB RAM, 2 GB disk. No systemd, no cron, no GPU.
 
-## Network
+## Limitations, and what to do about them
 
-Egress is an IP allowlist set by the operator. By default only DNS (1.1.1.1) is reachable, so `pip install` and `npm install` will fail unless the operator opened the registries. If a network call fails with a timeout, say so and ask whether egress should be widened rather than retrying.
+Check these before you start, and tell the user plainly when a task hits one instead of retrying or working around it on the host.
+
+- **Egress is an IP allowlist, default DNS only.** `pip install`, `npm install`, and `git clone` will time out unless the operator opened those registries. If a network call fails, say so and ask whether egress should be widened. Do not retry in a loop.
+- **Standard library only.** No pandas, numpy, requests, or build tools in the image. Write stdlib Python (`csv`, `json`, `statistics`, `sqlite3`) and stdlib Node. If a task truly needs a third-party package, say the image would need rebuilding rather than trying to install it.
+- **1 vCPU, 512 MB RAM, 2 GB disk.** Fine for scripts and CSVs up to a few hundred MB processed in a streaming way. Not enough for `next build`, large in-memory dataframes, or compiling big projects. Prefer streaming and chunked processing; if the job needs more, say so.
+- **Files are capped at 8 MB each** via `sandbox_put_file`. For larger inputs, ask the user how to get the data in rather than splitting it silently.
+- **Commands are request/response with a 60 s default timeout**, and the process is killed when the call returns. You cannot start a dev server, a daemon, or watch mode. For a web app, you can build and run tests, but not serve it. Pass `timeout_ms` for jobs over a minute.
+- **Nothing can connect into a sandbox.** There is no URL for anything listening inside.
+- **State under `/work` lasts about 15 minutes**, then the sandbox is destroyed. Copy results back into the conversation before you are done.
+
+When a task cannot be done inside these limits, name the specific limit, propose the smallest change that would lift it, and stop. Do not fall back to running the code on the host unless the user explicitly asks.
 
 ## Reporting
 
