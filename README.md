@@ -1,30 +1,108 @@
 # sandboxd
 
-Firecracker microVM sandbox service for agent harnesses. One binary, warm pool,
-snapshot restore, per-VM netns with egress allowlist, vsock exec.
+Firecracker microVM sandboxes for coding agents, behind a four-endpoint HTTP API and an MCP server for Claude Code.
 
-Needs a Linux host with `/dev/kvm`, `ip`, `nft`, `docker`. Does not run on macOS.
+Each sandbox is a real VM with its own kernel, restored from a golden snapshot in about 100 ms, network-isolated with a deny-by-default egress allowlist, and destroyed with everything in it. One Go binary, two dependencies.
+
+Status: working prototype. Measured, not hardened. Read [the writeup](https://aviraj.dev/blogs/firecracker-is-the-easy-part) and [NOTES.md](NOTES.md) before trusting it with anything.
+
+## Numbers
+
+Google Cloud n2-standard-4, nested KVM, Debian 13. Bare metal will be faster.
+
+| metric | value |
+| --- | --- |
+| snapshot restore to agent ready | p50 119 ms |
+| cold boot to agent ready | ~1.4 s |
+| exec round trip, warm sandbox | p50 4 ms, p99 9 ms |
+| idle RSS per VM | ~28 MB |
+| overlay per VM on XFS reflink | ~110 ms, ~6 MB |
+
+## Install
+
+Needs a Linux host with `/dev/kvm`: bare metal, or a VM with nested virtualization (GCE `--enable-nested-virtualization`, Azure Dv3+, Hetzner Cloud). Debian or Ubuntu. Run as root:
 
 ```sh
-./build/build.sh                 # firecracker, kernel, rootfs, guest agent
-sudo ./build/snapshot.sh         # golden snapshot for fast restore
-go build -o sandboxd . && sudo ./sandboxd -pool 4 -egress 151.101.0.0/16,104.16.0.0/12
+curl -sL https://raw.githubusercontent.com/avirajkhare00/sandboxd/main/install.sh | sh
+```
 
-curl -XPOST localhost:8080/sandboxes                       # {"id":"..."}
+That installs Firecracker, builds a Debian rootfs with Python, Node and git, takes the golden snapshot, sets up a reflink-capable XFS state directory, and starts `sandboxd` as a systemd service on `127.0.0.1:8080`.
+
+Egress is denied except for `1.1.1.1` (DNS). Widen it in `/etc/default/sandboxd`:
+
+```sh
+EGRESS=1.1.1.1/32,151.101.0.0/16,104.16.0.0/12
+```
+
+## API
+
+```sh
+curl -XPOST localhost:8080/sandboxes                      # {"id":"674e8d71"}
 curl -XPOST localhost:8080/sandboxes/$ID/exec -d '{"cmd":["python3","-c","print(1+1)"]}'
+                                                          # {"stdout":"2\n","stderr":"","exit_code":0}
 curl -XPUT  localhost:8080/sandboxes/$ID/files/a.py --data-binary @a.py
 curl -XDELETE localhost:8080/sandboxes/$ID
 ```
 
-Numbers to collect for the blog: cold boot vs restore (ms), RSS per idle VM,
-VMs per box, exec p50/p99 under load, overlay disk growth per hour.
+Commands run as root in `/work` inside the guest. Files under `/work` persist for the sandbox's lifetime, 15 minutes by default (`-maxlife`).
 
-## Dev loop on the GCE box
+## Claude Code
 
-```sh
-gcloud compute ssh sandboxd --zone=asia-south1-a
-export PATH=$PATH:/usr/local/go/bin:/usr/sbin
-cd sandboxd && go build -o sandboxd . && sudo -E env PATH=$PATH ./sandboxd -pool 4 -snapdir build/snapshot -state /srv/sandboxd -egress 1.1.1.1/32
-# stop: sudo kill $(pgrep -x sandboxd) $(pgrep -x firecracker); sudo rm -rf /srv/sandboxd/firecracker
+`sandboxd-mcp` is a stdio MCP server that wraps the API. Add to `.claude/settings.json` or `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "sandbox": {
+      "command": "/usr/local/bin/sandboxd-mcp",
+      "env": { "SANDBOXD_ADDR": "http://127.0.0.1:8080" }
+    }
+  }
+}
 ```
-See NOTES.md for measurements and the failure log.
+
+Tools: `sandbox_run` (shell command, lazily creates a session sandbox), `sandbox_put_file`, `sandbox_create`, `sandbox_destroy`.
+
+If sandboxd runs on a remote box, tunnel it: `ssh -N -L 8080:127.0.0.1:8080 host`. The MCP server itself is plain HTTP and builds on macOS.
+
+## How it works
+
+```
+POST /sandboxes ─► Pool.Get ─► warm VM        (buffered channel; a goroutine restores a replacement)
+                                │
+                     jailer chroot /srv/sbx/firecracker/<id>/root
+                       /rootfs.ext4   reflink clone of base image
+                       /vmlinux       hardlink
+                       vm.snap vm.mem hardlinks to golden snapshot
+                       v.sock         firecracker vsock UDS
+                     netns sb-<id>: tap0 172.16.0.1/30 ─ veth ─ host bridge sb0 ─ nftables allowlist ─ NAT
+                                │
+POST /exec ─► CONNECT 5000 over v.sock ─► guest agent (PID 1) ─► fork/exec ─► JSON reply
+```
+
+Every VM sees identical device names and paths inside its own namespace and chroot, which is what makes one snapshot restorable N times.
+
+## Layout
+
+```
+main.go          HTTP API
+pool.go          warm pool
+vm.go            create / restore / exec / destroy
+net.go           netns, bridge, nftables
+rootfs.go        reflink overlay
+proto/           wire format shared with the guest
+guest/           agent that runs as init inside the VM
+cmd/sandboxd-mcp MCP server
+cmd/loadtest     concurrency benchmark
+build/           rootfs, kernel, snapshot, systemd unit
+install.sh
+NOTES.md         measurements and the failure log
+```
+
+## Not done
+
+Authentication on the API (bind to localhost only). Per-sandbox CPU quotas beyond vCPU count. Diff snapshots. Bare metal numbers. A macOS backend on Virtualization.framework would be possible but is not planned.
+
+## License
+
+Apache 2.0.
