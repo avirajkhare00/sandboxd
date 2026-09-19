@@ -46,6 +46,10 @@ curl -XDELETE localhost:8080/sandboxes/$ID
 
 Commands run as root in `/work` inside the guest. Files under `/work` persist for the sandbox's lifetime, 15 minutes by default (`-maxlife`).
 
+## Prebuilt binaries
+
+Every `v*` tag publishes `sandboxd` (linux/amd64), `sandboxd-mcp` (linux and macOS, amd64 and arm64), and the guest `agent` on the [releases page](https://github.com/avirajkhare00/sandboxd/releases), with checksums. `sandboxd` itself only runs on Linux with KVM; `sandboxd-mcp` is a plain HTTP client and runs anywhere.
+
 ## Claude Code
 
 `sandboxd-mcp` is a stdio MCP server that wraps the API. Add to `.claude/settings.json` or `~/.claude.json`:
